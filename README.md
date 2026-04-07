@@ -56,7 +56,7 @@ Pour éviter les conflits Git sur les fichiers binaires, **nous séparons le cod
 
 Ouvrez un terminal dans VS Code et lancez cette commande :
 ```bash
-tic80 assets/game.tic -code src/main.fnl
+tic80 --skip --fs . --cmd="load assets/game.tic & import code src/main.fnl & run"
 ```
 
 **Comment travailler en équipe :**
