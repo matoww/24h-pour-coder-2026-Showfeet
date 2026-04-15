@@ -4,17 +4,21 @@
 ;; author: Showfeet
 
 ;; --- DÉPENDANCES ---
+;; Ordre important : anime → agressif → player (chaîne d'héritage)
 (local item       (include "src.item"))
+(local inventory  (include "src.player.inventory"))
+(local player-cls (include "src.player.player"))
+(local attack     (include "src.player.attack"))
 (local weapon     (include "src.weapon.weapon"))
 (local projectile (include "src.weapon.projectile"))
 (local hud        (include "src.hud"))
-(local player     (include "src.player.player"))
-(local attack     (include "src.player.attack"))
-(local inventory  (include "src.player.inventory"))
 
 ;; --- CONSTANTES ---
 (local screen-w 240)
 (local screen-h 136)
+
+;; --- INSTANCE DU JOUEUR ---
+(local p1 (player-cls.new 120 68))
 
 ;; --- ÉTAT DU MONDE ---
 (var world
@@ -44,8 +48,8 @@
 ;; --- CAMÉRA ---
 
 (fn get-camera []
-  (values (- player.x (/ screen-w 2))
-          (- player.y (/ screen-h 2))))
+  (values (- p1.x (/ screen-w 2))
+          (- p1.y (/ screen-h 2))))
 
 ;; --- RENDU ---
 
@@ -72,13 +76,13 @@
 (fn handle-inputs []
   ;; Z (4) — attaque
   (when (btnp 4)
-    (weapon.attaquer player attack projectile))
-  ;; A (6) — inventaire
+    (weapon.attaquer p1 attack projectile))
+  ;; A (6) — ouvre / ferme l'inventaire
   (when (btnp 6)
     (set inventory-open (not inventory-open)))
-  ;; S (7) — cycle arme
+  ;; S (7) — cycle arme équipée
   (when (btnp 7)
-    (weapon.cycle player)))
+    (weapon.cycle p1)))
 
 ;; --- BOUCLE PRINCIPALE ---
 
@@ -89,10 +93,10 @@
       (set initialized true))
 
     ;; 1. Mises à jour
-    (player.update screen-w screen-h)
+    (p1:update)
     (update-world)
     (handle-inputs)
-    (attack.update player)
+    (attack.update p1)
     (projectile.update)
 
     ;; 2. Palette scène
@@ -104,17 +108,16 @@
     (let [(cam-x cam-y) (get-camera)]
       (draw-map-view cam-x cam-y)
       (projectile.draw cam-x cam-y)
-      ;; Arme de swing dessinée entre la map et le joueur
-      (attack.draw player screen-w screen-h)
-      (player.draw screen-w screen-h))
+      (attack.draw p1 screen-w screen-h)
+      (p1:draw screen-w screen-h))
 
     ;; 4. HUD avec palette d'origine
     (pal)
-    (hud.draw player screen-w screen-h)
+    (hud.draw p1 screen-w screen-h)
 
     ;; 5. Panneau inventaire
     (when inventory-open
       (hud.draw-inventory-panel
-        player.inventory item.RESSOURCES screen-w screen-h)
+        p1.inventory item.RESSOURCES screen-w screen-h)
       (hud.draw-weapon-stats
-        player.equipped-weapon screen-w screen-h))))
+        p1.equipped-weapon screen-w screen-h))))

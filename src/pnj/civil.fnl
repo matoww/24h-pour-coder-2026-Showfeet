@@ -29,22 +29,27 @@
 
 ( set self.name (lst-name (math.random 1 (length lst-name))))
 ( set self.dialog (lst-dialog (math.random 1 (length lst-dialog))))
-( set self.construction self.defineStat (astar.heuristic position-base {:x self.x :y self.y}) (astar.heuristic {:x 0 :y 0} {x 240 :y 136})))
+( set self.construction self.defineStat (astar.heuristic position-base {:x self.x :y self.y}) (astar.heuristic {:x 0 :y 0} {x 240 :y 136}))
+( set self.recolte self.defineStat (astar.heuristic position-base {:x self.x :y self.y}) (astar.heuristic {:x 0 :y 0} {x 240 :y 136})))
 
 (fn civil.defineStat [self distance max-dist]
   (let [min-possible 1
         max-possible 100
         spread 20
-        ;; On calcule le facteur de distance (entre 0 et 1)
+        
         dist-factor (/ (math.min distance max-dist) max-dist)
         
-        ;; Le 'plancher' de la stat augmente avec la distance
         low-bound (+ min-possible (* dist-factor (- max-possible spread)))
         high-bound (+ low-bound spread)
         
-        ;; Tirage aléatoire entre les deux bornes (arrondies pour math.random)
         raw-stat (math.random (math.floor low-bound) (math.floor high-bound))]
-    
-    ;; Le corps du 'let' (ce qui est renvoyé par la fonction)
-    ;; On s'assure de rester dans les clous [1, 100]
+
     (math.max min-possible (math.min max-possible raw-stat))))
+
+(fn civil.ia [self])
+
+(fn civil.draw [self])
+
+(fn civil.interact [self player])
+
+(fn civil.update [self])
