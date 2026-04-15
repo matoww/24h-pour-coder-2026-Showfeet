@@ -34,15 +34,15 @@
   (set self.y (+ self.y (* dy speed))))
 
 (fn player.draw [self screen-w screen-h]
-  ;; On réimplémente le draw ici car Anime n'est pas dans scope depuis player.fnl.
-  ;; La logique est identique à Anime.draw mais avec les coordonnées centrées.
   (let [px  (- (/ screen-w 2) 4)
         py  (- (/ screen-h 2) 4)
-        sid (if self.is-moving
-                (if (= (% (// (time) 150) 2) 0)
-                    self.sprite-idle
-                    self.sprite-walk)
-                self.sprite-idle)]
+        anim-frame (= (% (// (time) 150) 2) 0)
+        sid (if (= self.direction :up)
+                (if (and self.is-moving anim-frame) 293 292)
+                (if (= self.direction :down)
+                    (if (and self.is-moving anim-frame) 291 290)
+                    ;; :left et :right — flip géré par self.flip
+                    (if (and self.is-moving anim-frame) 289 288)))]
     (spr sid px py 0 1 self.flip)))
 
 player
