@@ -4,10 +4,13 @@
 ;; author: Showfeet
 
 ;; --- DÉPENDANCES ---
-(local item      (include "src.item"))
-(local inventory (include "src.player.inventory"))
-(local hud       (include "src.hud"))
-(local player    (include "src.player.player"))
+(local item       (include "src.item"))
+(local weapon     (include "src.weapon.weapon"))
+(local projectile (include "src.weapon.projectile"))
+(local hud        (include "src.hud"))
+(local player     (include "src.player.player"))
+(local attack     (include "src.player.attack"))
+(local inventory  (include "src.player.inventory"))
 
 ;; --- CONSTANTES ---
 (local screen-w 240)
@@ -20,8 +23,8 @@
    :night-duration 120
    :is-night       false})
 
-(var initialized     false)
-(var inventory-open  false)   ;; toggle avec S (btn 7)
+(var initialized    false)
+(var inventory-open false)
 
 ;; --- OUTILS SYSTÈME ---
 
@@ -33,10 +36,6 @@
 ;; --- LOGIQUE DU MONDE ---
 
 (fn update-world []
-  (when (btnp 4)
-    (if world.is-night
-        (set world.time 0)
-        (set world.time world.day-duration)))
   (set world.time (+ world.time 1))
   (let [total   (+ world.day-duration world.night-duration)
         current (% world.time total)]
@@ -71,12 +70,15 @@
 ;; --- INPUTS ---
 
 (fn handle-inputs []
-  ;; Debug pickup
-  (when (btnp 4) (inventory.add player.inventory item.BOIS   1))
-  (when (btnp 5) (inventory.add player.inventory item.PIERRE 1))
-  ;; Toggle inventaire (S)
+  ;; Z (4) — attaque
+  (when (btnp 4)
+    (weapon.attaquer player attack projectile))
+  ;; A (6) — inventaire
+  (when (btnp 6)
+    (set inventory-open (not inventory-open)))
+  ;; S (7) — cycle arme
   (when (btnp 7)
-    (set inventory-open (not inventory-open))))
+    (weapon.cycle player)))
 
 ;; --- BOUCLE PRINCIPALE ---
 
@@ -90,6 +92,8 @@
     (player.update screen-w screen-h)
     (update-world)
     (handle-inputs)
+    (attack.update player)
+    (projectile.update)
 
     ;; 2. Palette scène
     (pal)
@@ -99,13 +103,18 @@
     (cls 0)
     (let [(cam-x cam-y) (get-camera)]
       (draw-map-view cam-x cam-y)
+      (projectile.draw cam-x cam-y)
+      ;; Arme de swing dessinée entre la map et le joueur
+      (attack.draw player screen-w screen-h)
       (player.draw screen-w screen-h))
 
     ;; 4. HUD avec palette d'origine
     (pal)
     (hud.draw player screen-w screen-h)
 
-    ;; 5. Panneau inventaire (par-dessus tout si ouvert)
+    ;; 5. Panneau inventaire
     (when inventory-open
       (hud.draw-inventory-panel
-        player.inventory item.RESSOURCES screen-w screen-h))))
+        player.inventory item.RESSOURCES screen-w screen-h)
+      (hud.draw-weapon-stats
+        player.equipped-weapon screen-w screen-h))))
