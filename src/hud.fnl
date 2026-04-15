@@ -85,5 +85,31 @@
           (print qstr (- (+ panel-x panel-w) qw 4) (+ ry 1)
                  (if (> q 0) 12 5) false 1 false))))))
 
-{:draw               draw
- :draw-inventory-panel draw-inventory-panel}
+;; --- STATS ARME ---
+
+(fn draw-weapon-stats [weapon screen-w screen-h]
+  (when (not= weapon nil)
+    (let [panel-w 70
+          panel-h 42
+          panel-x (- screen-w panel-w 3)
+          panel-y (- (// screen-h 2) (// panel-h 2))]
+
+      (rect  panel-x panel-y panel-w panel-h 0)
+      (rectb panel-x panel-y panel-w panel-h 12)
+
+      (print weapon.name (+ panel-x 4) (+ panel-y 3) 12 false 1 false)
+      (line panel-x (+ panel-y 11) (+ panel-x panel-w) (+ panel-y 11) 5)
+
+      (let [stats [[:degats   "Degats"  ]
+                   [:portee   "Portee"  ]
+                   [:vitesse  "Vitesse" ]
+                   [:critique "Critique"]]]
+        (each [i [key label] (ipairs stats)]
+          (let [ry  (+ panel-y 13 (* (- i 1) 8))
+                val (tostring (. weapon key))]
+            (print label (+ panel-x 4) ry 5 false 1 true)
+            (print val (- (+ panel-x panel-w) (* (length val) 4) 4) ry 12 false 1 true)))))))
+
+{:draw                 draw
+ :draw-inventory-panel draw-inventory-panel
+ :draw-weapon-stats    draw-weapon-stats}
