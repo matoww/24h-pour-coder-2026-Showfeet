@@ -114,6 +114,7 @@
     ;; 4. HUD avec palette d'origine
     (pal)
     (hud.draw p1 screen-w screen-h)
+    (hud.draw-clock world screen-w screen-h)
 
     ;; 5. Panneau inventaire
     (when inventory-open
