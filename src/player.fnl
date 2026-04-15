@@ -1,13 +1,12 @@
-;; src/player.fnl
-
-(local sprite-idle 2)
-(local sprite-walk 3)
+(local sprite-idle 256)
+(local sprite-walk 257)
 
 (local player {:x 120 
                :y 68 
                :speed 2 
                :radius 4 
-               :is-moving false})
+               :is-moving false
+               :flip 0}) ;; 0 = normal, 1 = miroir horizontal
 
 (fn player.update [screen-w screen-h]
   "Gère les déplacements du joueur."
@@ -18,6 +17,12 @@
   (if (btn 1) (set dy 1))
   (if (btn 2) (set dx -1))
   (if (btn 3) (set dx 1))
+  
+  ;; --- GESTION DU FLIP ---
+  ;; Si on va à gauche, on retourne le sprite
+  (if (< dx 0) (set player.flip 1)
+      ;; Si on va à droite, on le remet à l'endroit
+      (> dx 0) (set player.flip 0))
   
   (set player.is-moving (or (not= dx 0) (not= dy 0)))
   
@@ -37,7 +42,10 @@
                           sprite-idle 
                           sprite-walk)
                       sprite-idle)]
-    (spr sprite-id x y 0)))
+    
+    ;; spr(id, x, y, colorkey, scale, flip)
+    ;; flip: 0 = normal, 1 = horizontal, 2 = vertical, 3 = les deux
+    (spr sprite-id x y 0 1 player.flip)))
 
-;; On retourne la table player pour qu'elle soit accessible via (require)
+;; On retourne la table player
 player

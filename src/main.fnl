@@ -30,11 +30,11 @@
     (map cell-x cell-y 31 18 offset-x offset-y)))
 
 (fn init-test-map []
+  "Remplit la map aléatoirement avec les tuiles 13, 14 et 15."
   (for [x 0 63]
     (for [y 0 63]
-      (if (= (math.random 0 10) 0)
-          (mset x y 1)
-          (mset x y 0)))))
+      ;; math.random(13, 15) choisira soit 13, soit 14, soit 15
+      (mset x y (math.random 13 15)))))
 
 ;; --- BOUCLE PRINCIPALE ---
 
