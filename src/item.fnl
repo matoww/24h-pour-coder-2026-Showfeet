@@ -55,8 +55,8 @@
 ;; Les IDs de sprites sont des placeholders — à ajuster dans
 ;; l'éditeur de sprites TIC-80.
 ;; ------------------------------------------------------------------
-(local BOIS   (make-ressource :bois   "Bois"   4 6  999))
-(local PIERRE (make-ressource :pierre "Pierre" 5 13 999))
+(local BOIS   (make-ressource :bois   "Bois"   5 6  999))
+(local PIERRE (make-ressource :pierre "Pierre" 4 13 999))
 
 ;; Tableau ordonné pour l'affichage (ipairs = ordre garanti).
 (local RESSOURCES [BOIS PIERRE])
