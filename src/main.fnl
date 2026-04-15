@@ -4,7 +4,6 @@
 ;; author: Showfeet
 
 ;; --- DÉPENDANCES ---
-;; Ordre important : anime → agressif → player (chaîne d'héritage)
 (local item       (include "src.item"))
 (local inventory  (include "src.player.inventory"))
 (local player-cls (include "src.player.player"))
@@ -12,6 +11,7 @@
 (local weapon     (include "src.weapon.weapon"))
 (local projectile (include "src.weapon.projectile"))
 (local hud        (include "src.hud"))
+(local Civil      (include "src.pnj.civil"))
 
 ;; --- CONSTANTES ---
 (local screen-w 240)
@@ -26,9 +26,13 @@
    :day-duration   120
    :night-duration 120
    :is-night       false})
+(var sauvegardeWorld {:is-night false})
 
 (var initialized    false)
 (var inventory-open false)
+
+;; --- LISTE DES CIVILS ---
+(var civils [])
 
 ;; --- OUTILS SYSTÈME ---
 
@@ -40,10 +44,22 @@
 ;; --- LOGIQUE DU MONDE ---
 
 (fn update-world []
+
   (set world.time (+ world.time 1))
+
   (let [total   (+ world.day-duration world.night-duration)
+
         current (% world.time total)]
-    (set world.is-night (>= current world.day-duration))))
+
+    (set sauvegardeWorld.is-night world.is-night)
+
+    (set world.is-night (>= current world.day-duration)))
+
+    (when (and (not (= world.is-night sauvegardeWorld.is-night))
+               sauvegardeWorld.is-night
+               (< (length civils) 15))
+
+      (table.insert civils (Civil.new))))
 
 ;; --- CAMÉRA ---
 
@@ -71,18 +87,31 @@
     (for [y 0 63]
       (mset x y (math.random 13 15)))))
 
+(fn init-civils []
+  "Crée quelques civils dispersés sur la map."
+  (for [_ 1 3]
+    (let [cx (* (math.random 5 25) 8)
+          cy (* (math.random 5 15) 8)]
+      (table.insert civils (Civil.new cx cy)))))
+
 ;; --- INPUTS ---
 
 (fn handle-inputs []
-  ;; Z (4) — attaque
   (when (btnp 4)
     (weapon.attaquer p1 attack projectile))
-  ;; A (6) — ouvre / ferme l'inventaire
   (when (btnp 6)
     (set inventory-open (not inventory-open)))
-  ;; S (7) — cycle arme équipée
   (when (btnp 7)
-    (weapon.cycle p1)))
+    (weapon.cycle p1))
+
+  ;; Exemple : X (5) assigne un bâtiment fictif au 1er civil sans bâtiment
+  ;; À remplacer par ta vraie logique quand les bâtiments existent
+  (when (btnp 5)
+    (each [_ c (ipairs civils)]
+      (when (not c.batiment)
+        (Civil.assign-building c {:x p1.x :y p1.y})
+        (trace (.. c.name " reçoit un bâtiment !"))
+        (lua "break")))))
 
 ;; --- BOUCLE PRINCIPALE ---
 
@@ -90,6 +119,7 @@
   (fn []
     (when (not initialized)
       (init-test-map)
+      (init-civils)
       (set initialized true))
 
     ;; 1. Mises à jour
@@ -98,6 +128,10 @@
     (handle-inputs)
     (attack.update p1)
     (projectile.update)
+
+    ;; Mise à jour des civils
+    (each [_ c (ipairs civils)]
+      (Civil.update c world.is-night))
 
     ;; 2. Palette scène
     (pal)
@@ -108,6 +142,11 @@
     (let [(cam-x cam-y) (get-camera)]
       (draw-map-view cam-x cam-y)
       (projectile.draw cam-x cam-y)
+
+      ;; Dessin des civils
+      (each [_ c (ipairs civils)]
+        (Civil.draw c cam-x cam-y))
+
       (attack.draw p1 screen-w screen-h)
       (p1:draw screen-w screen-h))
 

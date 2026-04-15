@@ -74,3 +74,4 @@
 
     (if (not final-path) (trace "ECHEC: Liste vide, aucun chemin trouvé."))
     final-path))
+{: a-star : heuristic : walkable? : same-pos?}

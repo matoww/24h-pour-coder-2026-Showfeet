@@ -1,6 +1,6 @@
 ;; player/player.fnl
 
-(local Agressif (include "src.agressif"))
+(local Agressif (include "src.pnj.agressif"))
 
 (local player {})
 (set player.__index player)
