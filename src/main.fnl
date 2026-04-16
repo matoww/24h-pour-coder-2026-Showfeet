@@ -11,23 +11,24 @@
 (local projectile  (include "src.weapon.projectile"))
 (local hud         (include "src.hud"))
 (local Civil       (include "src.pnj.civil"))
-(local Nav (include "src.pnj.naviguation"))
+(local Nav         (include "src.pnj.naviguation"))
 (local Arbre       (include "src.world.arbre"))
 (local Rocher      (include "src.world.rocher"))
 (local objects     (include "src.world.objects"))
 (local game-map    (include "src.world.map"))
-(local Base   (include "src.world.base"))
+(local Base        (include "src.world.base"))
+(local Buildings   (include "src.construisible.buildings"))
+(local Menu        (include "src.menu"))
 
-;; Nouveaux modules de mobs
+;; Mobs
 (local MeleeMob    (include "src.pnj.meleeMob"))
 (local RangedMob   (include "src.pnj.rangeMob"))
 
 (local screen-w 240)
 (local screen-h 136)
 
-(local MOB-MAX             25)
-(local SPAWN-INTERVAL      120)
-(local SPAWN-PAR-VAGUE      2)
+(local MOB-MAX        25)
+(local SPAWN-INTERVAL 120)
 
 (local p1 (player-cls.new 205 105))
 
@@ -38,14 +39,12 @@
    :is-night       false
    :day-count      0})
 
-(var initialized    false)
-(var inventory-open false)
+(var initialized false)
 (var prev-x p1.x)
 (var prev-y p1.y)
-
 (var game-over false)
 (var civils  [])
-(var mobs    []) ;; Liste générique pour tous les types d'ennemis
+(var mobs    [])
 (var spawn-timer 0)
 (var zombie-spawn-points [])
 
@@ -55,7 +54,6 @@
       (for [i 0 15] (poke4 (+ 32736 i) i))))
 
 (fn init-zombie-spawn-points []
-  "Scanne la carte pour trouver les points de spawn (tuiles 61, 62, 63)"
   (for [tx 0 239]
     (for [ty 0 135]
       (let [t (mget tx ty)]
@@ -64,18 +62,14 @@
                         {:x (* tx 8) :y (* ty 8)}))))))
 
 (fn spawn-mob []
-  (trace "Tentative de spawn nocturne...")
   (if (<= (length zombie-spawn-points) 0)
       (trace "ERREUR : Aucune tuile 61, 62 ou 63 trouvee sur la map !")
-      (let [idx  (math.random 1 (length zombie-spawn-points))
-            sp   (. zombie-spawn-points idx)
-            ;; On force un zombie pour tester
+      (let [idx (math.random 1 (length zombie-spawn-points))
+            sp  (. zombie-spawn-points idx)
             new-zombie (MeleeMob.new sp.x sp.y :zombie)]
-        (if (= new-zombie nil)
-            (trace "ERREUR : Le module MeleeMob renvoie nil (verifie l'export)")
-            (do
-              (table.insert mobs new-zombie)
-              (trace (.. "Spawn reussi ! Mobs totaux: " (length mobs))))))))
+        (when new-zombie
+          (table.insert mobs new-zombie)
+          (trace (.. "Spawn ! Mobs: " (length mobs)))))))
 
 (fn update-world []
   (set world.time (+ world.time 1))
@@ -94,9 +88,7 @@
     (set game-over true)))
 
 (fn update-mobs-logic []
-  ;; On traite la file d'attente globale de navigation
-  (Nav.process-queue p1) 
-
+  (Nav.process-queue p1)
   (for [i (length mobs) 1 -1]
     (let [m (. mobs i)]
       (if (<= m.hp 0)
@@ -104,26 +96,24 @@
           (m:update p1)))))
 
 (fn check-projectiles [targets]
-  "Gère les collisions des projectiles"
   (var pi 1)
   (while (<= pi (length projectile.actifs))
     (let [proj (. projectile.actifs pi)]
       (var a-touche false)
       (each [_ target (ipairs targets)]
-        (when (and (not a-touche) 
-                   (> (or target.hp 0) 0) 
+        (when (and (not a-touche)
+                   (> (or target.hp 0) 0)
                    (not= target proj.owner))
           (let [dx (- proj.x (+ target.x 4))
                 dy (- proj.y (+ target.y 4))
                 dist (math.sqrt (+ (* dx dx) (* dy dy)))]
             (when (<= dist 8)
               (set target.hp (math.max 0 (- target.hp proj.degats)))
-              (set proj.parcouru proj.portee-px) 
+              (set proj.parcouru proj.portee-px)
               (set a-touche true)))))
       (set pi (+ pi 1)))))
 
 (fn check-hit [attacker targets]
-  "Gère les collisions de mêlée"
   (let [st attacker.attack-state]
     (when (and st st.active st.weapon)
       (let [w     st.weapon
@@ -137,7 +127,7 @@
             aw    (if (or (= attacker.direction :left) (= attacker.direction :right)) range 16)
             ah    (if (or (= attacker.direction :up)   (= attacker.direction :down))  range 16)]
         (each [_ target (ipairs targets)]
-          (when (and (not= attacker target) 
+          (when (and (not= attacker target)
                      (> (or target.hp 0) 0)
                      (< ax (+ target.x 8)) (> (+ ax aw) target.x)
                      (< ay (+ target.y 8)) (> (+ ay ah) target.y))
@@ -145,7 +135,7 @@
 
 (fn get-camera []
   (values (- (+ p1.x 4) (/ screen-w 2))
-          (- (+ p1.y 4) (/ screen-h 2)))) 
+          (- (+ p1.y 4) (/ screen-h 2))))
 
 (fn draw-map-view [cam-x cam-y]
   (let [cell-x   (// cam-x 8)
@@ -158,7 +148,7 @@
   (pal 12 13) (pal 13 14) (pal 5  10)
   (pal 6   9) (pal 7   0) (pal 4  14)
   (pal 3   1) (pal 8   2) (pal 11 10)
-  (pal 10  9)) 
+  (pal 10  9))
 
 (fn resolve-collision []
   (let [r  p1.radius
@@ -170,7 +160,7 @@
           (if (not (objects.check-collision px prev-y r))
               (set p1.y prev-y)
               (do (set p1.x prev-x)
-                  (set p1.y prev-y))))))) 
+                  (set p1.y prev-y)))))))
 
 (fn reset-game []
   (set p1.hp      p1.max-hp)
@@ -182,26 +172,51 @@
   (set world.day-count 0)
   (set world.is-night  false)
   (set spawn-timer 0)
-  (set Nav.recalc-queue []))
+  (set Nav.recalc-queue [])
+  (while (> (length Buildings.list) 0)
+    (table.remove Buildings.list)))
 
+;; -----------------------------------------------------------------
+;; build-ctx : contexte transmis au Menu pour qu'il sache quoi faire.
+;; Reconstruit chaque frame pour toujours avoir des données fraîches.
+;; -----------------------------------------------------------------
+(fn build-menu-ctx []
+  {:inventory     p1.inventory
+   :civils        civils
+   :build-catalog Buildings.CATALOGUE
+   :can-pay       (fn [info] (Buildings.peut-payer? p1.inventory info.cout))
+   :on-build      (fn [info] (Buildings.placer p1 info))
+   :on-civil      (fn [civil] (Buildings.assigner-civil civil Civil))})
+
+;; -----------------------------------------------------------------
+;; handle-inputs : délègue au menu s'il est ouvert
+;; -----------------------------------------------------------------
 (fn handle-inputs []
-  (when (btnp 4)
-    (let [w p1.equipped-weapon]
-      (when (not= w nil)
-        (if w.ranged
-            (projectile.fire p1 w)
-            (do
-              (attack.start p1 w)
-              (objects.hit-in-range p1 w inventory))))))
-  (when (btnp 5) 
-    (each [_ c (ipairs civils)]
-      (when (not c.batiment)
-        (Civil.assign-building c {:x p1.x :y p1.y})
-        (lua "break"))))
-  (when (btnp 6)
-    (set inventory-open (not inventory-open)))
-  (when (btnp 7)
-    (weapon.cycle p1)))
+  ;; DEBUG : log chaque pression de bouton
+  (when (btnp 4) (trace "[DEBUG] btn 4 (A) presse"))
+  (when (btnp 5) (trace "[DEBUG] btn 5 (B) presse"))
+  (when (btnp 6) (trace "[DEBUG] btn 6 (X) presse"))
+  (when (btnp 7) (trace "[DEBUG] btn 7 (Y) presse"))
+
+  (if (Menu.open?)
+      (do
+        (trace "[DEBUG] Menu ouvert, handle-input")
+        (Menu.handle-input (build-menu-ctx)))
+      (do
+        (when (btnp 4)
+          (let [w p1.equipped-weapon]
+            (when (not= w nil)
+              (if w.ranged
+                  (projectile.fire p1 w)
+                  (do
+                    (attack.start p1 w)
+                    (objects.hit-in-range p1 w inventory))))))
+        (when (btnp 6)
+          (trace "[DEBUG] Appel Menu.toggle")
+          (Menu.toggle)
+          (trace (.. "[DEBUG] Apres toggle, open? = " (tostring (Menu.open?)))))
+        (when (btnp 7)
+          (weapon.cycle p1)))))
 
 (fn init-civils []
   (for [_ 1 3]
@@ -232,36 +247,38 @@
     (set prev-x p1.x)
     (set prev-y p1.y)
 
-    (p1:update)
-    (resolve-collision)
+    ;; Quand le menu est ouvert, on fige le joueur mais on laisse
+    ;; le monde tourner (les bâtiments bossent, les mobs avancent).
+    (when (not (Menu.open?))
+      (p1:update)
+      (resolve-collision))
+
     (update-world)
     (handle-inputs)
     (attack.update p1)
     (projectile.update)
     (objects.update)
     (each [_ c (ipairs civils)] (Civil.update c world.is-night))
-    
-    ;; --- LOGIQUE DE SPAWN DEBOGAGE ---
-    (set spawn-timer (+ spawn-timer 1))
-    
-    ;; On affiche l'etat toutes les 60 frames (1s) pour comprendre
-    (when (= (% world.time 60) 0)
-       (trace (.. "Etat: " (if world.is-night "NUIT" "JOUR") 
-                  " | Timer: " spawn-timer 
-                  " | Mobs: " (length mobs))))
 
-    ;; ON FORCE LE SPAWN MEME LE JOUR POUR LE TEST
+    ;; --- Spawn ---
+    (set spawn-timer (+ spawn-timer 1))
+    (when (= (% world.time 60) 0)
+      (trace (.. "Etat: " (if world.is-night "NUIT" "JOUR")
+                 " | Mobs: " (length mobs)
+                 " | Batiments: " (length Buildings.list))))
     (when (>= spawn-timer SPAWN-INTERVAL)
       (set spawn-timer 0)
-      (if (= (length zombie-spawn-points) 0)
-          (trace "ALERTE: Aucun point de spawn sur la map (tuiles 61,62,63)!")
-          (spawn-mob)))
+      (when (> (length zombie-spawn-points) 0)
+        (spawn-mob)))
 
-    (update-mobs-logic) ;; On separe l'update du spawn pour plus de clarte
+    (update-mobs-logic)
+    (Buildings.update mobs)
+    (Buildings.auto-collecte p1)
 
     ;; --- Collisions ---
     (check-projectiles mobs)
     (check-projectiles [p1])
+    (check-projectiles (Buildings.cibles-pour-mobs))
     (check-hit p1 mobs)
     (each [_ m (ipairs mobs)] (check-hit m [p1]))
 
@@ -272,17 +289,19 @@
     (let [(cam-x cam-y) (get-camera)]
       (draw-map-view cam-x cam-y)
       (objects.draw cam-x cam-y)
+      (Buildings.draw cam-x cam-y)
       (projectile.draw cam-x cam-y)
       (each [_ m (ipairs mobs)] (m:draw cam-x cam-y))
       (each [_ c (ipairs civils)] (Civil.draw c cam-x cam-y))
-      
-      ;; Utilisation de cam-x/y pour que l'arme suive le joueur dans le monde
       (attack.draw p1 cam-x cam-y)
       (p1:draw screen-w screen-h))
 
     (pal)
     (hud.draw p1 screen-w screen-h)
     (hud.draw-clock world screen-w screen-h)
-    (when inventory-open
-      (hud.draw-inventory-panel p1.inventory item.RESSOURCES screen-w screen-h)
-      (hud.draw-weapon-stats p1.equipped-weapon screen-w screen-h))))
+    ;; Menu unifié (onglets INVENT / BUILD / CIVILS)
+    (Menu.draw screen-w screen-h (build-menu-ctx))
+    ;; --- DEBUG AFFICHAGE ÉCRAN ---
+    (print (.. "menu open: " (tostring (Menu.open?))) 2 2 11 false 1 true)
+    (print (.. "civils: " (length civils)) 2 10 11 false 1 true)
+    (print (.. "batiments: " (length Buildings.list)) 2 18 11 false 1 true)))
