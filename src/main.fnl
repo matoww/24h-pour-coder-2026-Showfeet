@@ -35,8 +35,8 @@
 
 (var world
   {:time           0
-   :day-duration   120
-   :night-duration 120
+   :day-duration   5600
+   :night-duration 5600
    :is-night       false
    :day-count      0})
 
@@ -182,8 +182,8 @@
 
 (fn reset-game []
   (set p1.hp      p1.max-hp)
-  (set p1.x       137)
-  (set p1.y       77)
+  (set p1.x       1585)
+  (set p1.y       825)
   (set mobs       [])
   (set game-over  false)
   (set world.time 0)
