@@ -4,6 +4,4 @@
   (setmetatable
     {construisible.new x y 224 150 10000 constructeur}
      )
-    
-    
-   )   
+)   

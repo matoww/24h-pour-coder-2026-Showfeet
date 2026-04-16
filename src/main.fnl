@@ -29,7 +29,7 @@
 (local SPAWN-INTERVAL      120)
 (local SPAWN-PAR-VAGUE      2)
 
-(local p1 (player-cls.new 120 68))
+(local p1 (player-cls.new 205 105))
 
 (var world
   {:time           0
