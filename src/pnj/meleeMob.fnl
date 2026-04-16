@@ -7,8 +7,8 @@
 
 ;; Liste des types de monstres au corps à corps
 (local TYPES {
-  :zombie  {:hp 30 :speed 0.8 :sprite-idle 276 :sprite-walk 277 :range 1 :degats 5}
-  :squelette {:hp 20 :speed 1.2 :sprite-idle 280 :sprite-walk 281 :range 1 :degats 3}
+  :barbare  {:hp 30 :speed 0.8 :sprite-idle 276 :sprite-walk 277 :range 1 :degats 5}
+  :araignee {:hp 15 :speed 1.2 :sprite-idle 272 :sprite-walk 273 :range 1 :degats 7}
 })
 
 (fn MeleeMob.new [x y type-key]
@@ -19,7 +19,7 @@
           :sprite-idle config.sprite-idle :sprite-walk config.sprite-walk
           :direction :down :flip 0 :is-moving false
           :recalc-timer 0 :path nil :path-idx 1
-          :attack-state {:active false :frame 0 :weapon {:degats config.degats :portee config.range :sprite-id 0}}
+          :attack-state {:active false :frame 0 :weapon {:degats config.degats :portee config.range :sprite-id 299}}
         } MeleeMob)]
     self))
 

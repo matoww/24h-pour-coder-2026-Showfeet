@@ -30,7 +30,7 @@
 (local MOB-MAX        25)
 (local SPAWN-INTERVAL 120)
 
-(local p1 (player-cls.new 205 105))
+(local p1 (player-cls.new 136 77))
 
 (var world
   {:time           0
@@ -62,13 +62,30 @@
                         {:x (* tx 8) :y (* ty 8)}))))))
 
 (fn spawn-mob []
+  ;; On vérifie d'abord qu'il y a bien des points de spawn
   (if (<= (length zombie-spawn-points) 0)
-      (trace "ERREUR : Aucune tuile 61, 62 ou 63 trouvee sur la map !")
+      (trace "ERREUR : Aucun point de spawn disponible !")
+      
+      ;; S'il y en a, on choisit un point au hasard
       (let [idx (math.random 1 (length zombie-spawn-points))
             sp  (. zombie-spawn-points idx)
-            new-zombie (MeleeMob.new sp.x sp.y :zombie)]
-        (when new-zombie
-          (table.insert mobs new-zombie)
+            
+            ;; On tire à pile ou face (50% de chance) pour choisir la classe du mob
+            is-melee (< (math.random) 0.5)
+            
+            ;; On génère le monstre en fonction du tirage
+            new-mob (if is-melee
+                        ;; Cas 1 : C'est un monstre de mêlée (Barbare ou Araignée)
+                        (let [type-key (if (< (math.random) 0.5) :barbare :araignee)]
+                          (MeleeMob.new sp.x sp.y type-key))
+                        
+                        ;; Cas 2 : C'est un monstre à distance (Sorcier ou Sorcière)
+                        (let [type-key (if (< (math.random) 0.5) :sorcier :sorciere)]
+                          (RangedMob.new sp.x sp.y type-key)))]
+        
+        ;; On insère le nouveau monstre dans la liste globale
+        (when new-mob
+          (table.insert mobs new-mob)
           (trace (.. "Spawn ! Mobs: " (length mobs)))))))
 
 (fn update-world []
@@ -164,8 +181,8 @@
 
 (fn reset-game []
   (set p1.hp      p1.max-hp)
-  (set p1.x       120)
-  (set p1.y       68)
+  (set p1.x       137)
+  (set p1.y       77)
   (set mobs       [])
   (set game-over  false)
   (set world.time 0)
@@ -192,11 +209,6 @@
 ;; handle-inputs : délègue au menu s'il est ouvert
 ;; -----------------------------------------------------------------
 (fn handle-inputs []
-  ;; DEBUG : log chaque pression de bouton
-  (when (btnp 4) (trace "[DEBUG] btn 4 (A) presse"))
-  (when (btnp 5) (trace "[DEBUG] btn 5 (B) presse"))
-  (when (btnp 6) (trace "[DEBUG] btn 6 (X) presse"))
-  (when (btnp 7) (trace "[DEBUG] btn 7 (Y) presse"))
 
   (if (Menu.open?)
       (do
@@ -212,28 +224,18 @@
                     (attack.start p1 w)
                     (objects.hit-in-range p1 w inventory))))))
         (when (btnp 6)
-          (trace "[DEBUG] Appel Menu.toggle")
           (Menu.toggle)
-          (trace (.. "[DEBUG] Apres toggle, open? = " (tostring (Menu.open?)))))
         (when (btnp 7)
-          (weapon.cycle p1)))))
+          (weapon.cycle p1))))))
 
-(fn init-civils []
-  (for [_ 1 3]
-    (let [cx (* (math.random 5 25) 8)
-          cy (* (math.random 5 15) 8)]
-      (table.insert civils (Civil.new cx cy)))))
 
 (music 0)
 
 (global TIC
   (fn []
     (when (not initialized)
-      (trace "--- INITIALISATION DU MONDE ---")
       (game-map.init objects Arbre Rocher item)
       (init-zombie-spawn-points)
-      (trace (.. "Points de spawn trouves: " (length zombie-spawn-points)))
-      (init-civils)
       (set initialized true))
 
     ;; --- Game Over ---
@@ -262,10 +264,7 @@
 
     ;; --- Spawn ---
     (set spawn-timer (+ spawn-timer 1))
-    (when (= (% world.time 60) 0)
-      (trace (.. "Etat: " (if world.is-night "NUIT" "JOUR")
-                 " | Mobs: " (length mobs)
-                 " | Batiments: " (length Buildings.list))))
+
     (when (>= spawn-timer SPAWN-INTERVAL)
       (set spawn-timer 0)
       (when (> (length zombie-spawn-points) 0)
@@ -300,8 +299,4 @@
     (hud.draw p1 screen-w screen-h)
     (hud.draw-clock world screen-w screen-h)
     ;; Menu unifié (onglets INVENT / BUILD / CIVILS)
-    (Menu.draw screen-w screen-h (build-menu-ctx))
-    ;; --- DEBUG AFFICHAGE ÉCRAN ---
-    (print (.. "menu open: " (tostring (Menu.open?))) 2 2 11 false 1 true)
-    (print (.. "civils: " (length civils)) 2 10 11 false 1 true)
-    (print (.. "batiments: " (length Buildings.list)) 2 18 11 false 1 true)))
+    (Menu.draw screen-w screen-h (build-menu-ctx))))

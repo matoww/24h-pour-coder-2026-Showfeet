@@ -5,7 +5,8 @@
 (set RangedMob.__index RangedMob)
 
 (local TYPES {
-  :archer {:hp 15 :speed 0.6 :sprite-idle 310 :weapon {:degats 4 :portee 15 :vitesse-projectile 3 :sprite-projectile 315}}
+  :sorcier {:hp 15 :speed 0.6 :sprite-idle 260 :weapon {:degats 4 :portee 15 :vitesse-projectile 3 :sprite-projectile 316}}
+  :sorciere {:hp 12 :speed 0.8 :sprite-idle 275 :weapon {:degats 3 :portee 12 :vitesse-projectile 4 :sprite-projectile 317}}
 })
 
 (fn RangedMob.new [x y type-key]

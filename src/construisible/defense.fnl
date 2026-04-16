@@ -21,7 +21,7 @@
 (local SPRITE-PROJECTILE  315)
 
 ;; Coût
-(local COUT {:bois 2 :pierre 3})
+(local COUT {:bois 2 :pierre 3 :fer 1})
 
 ;; Directions supportées (les seules gérées par projectile.DIR-MAP)
 (local DIRS [:right :left :up :down])
