@@ -16,9 +16,11 @@
 
 (local TILES-SPAWN-ARBRE  [13 14 15])
 (local TILES-SPAWN-ROCHER [29 30 31])
+(local TILES-SPAWN-FER [61 62 63])
 
 (local PROB-ARBRE  0.08)
 (local PROB-ROCHER 0.06)
+(local PROB-FER 0.04)
 
 (local MAP-W 240)
 (local MAP-H 136)
@@ -40,6 +42,7 @@
 
   (var nb-arbres  0)
   (var nb-rochers 0)
+  (var nb-fer 0)
   (var nb-herbe   0)
 
   (for [tx 0 (- MAP-W 1)]
@@ -78,7 +81,15 @@
             (when (and (contient? TILES-SPAWN-ROCHER t)
                        (< (math.random) PROB-ROCHER))
               (objects-module.add (Rocher.new (* tx 8) (* ty 8) item))
-              (set nb-rochers (+ nb-rochers 1)))))))))
+              (set nb-rochers (+ nb-rochers 1))))))
+
+        ;; Spawn fer sur nether
+        (when (not arbre-spawne)
+          (let [t (mget tx ty)]
+            (when (and (contient? TILES-SPAWN-FER t)
+                       (< (math.random) PROB-FER))
+              (objects-module.add (Rocherfer.new (* tx 8) (* ty 8) item))
+              (set nb-fer (+ nb-fer 1))))))))
 
   (trace (.. "Tuiles herbe trouvees: " nb-herbe))
   (trace (.. "Arbres:  " nb-arbres))
