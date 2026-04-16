@@ -160,7 +160,17 @@
     ;; 7. Bordure
     (rectb (- cx r 2) 1 (+ (* 2 r) 4) (+ r 4) 5)))
 
+(fn draw-gameover [screen-w screen-h]
+  (let [panel-w 120
+        panel-h 60
+        panel-x (- (// screen-w 2) (// panel-w 2))
+        panel-y (- (// screen-h 2) (// panel-h 2))]
+    (rect  panel-x panel-y panel-w panel-h 0)
+    (rectb panel-x panel-y panel-w panel-h 2)
+    (print "GAME OVER" (+ panel-x 30) (+ panel-y 10) 2 false 2 false)))
+
 {:draw                 draw
  :draw-inventory-panel draw-inventory-panel
  :draw-weapon-stats    draw-weapon-stats
- :draw-clock           draw-clock}
+ :draw-clock           draw-clock
+ :draw-gameover        draw-gameover}
