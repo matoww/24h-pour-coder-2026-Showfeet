@@ -129,6 +129,9 @@
           cy (* (math.random 5 15) 8)]
       (table.insert civils (Civil.new cx cy)))))
 
+;; --- INITIALIZATION ---
+(music 0)
+
 ;; --- BOUCLE PRINCIPALE ---
 
 (global TIC
