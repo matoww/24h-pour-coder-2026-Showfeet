@@ -13,23 +13,41 @@
     (set self.attack-state    {:active false :frame 0 :weapon nil})
     (setmetatable self player)))
 
+(fn solid? [x y]
+  (let [tx (math.floor (/ x 8))
+        ty (math.floor (/ y 8))
+        tile (mget tx ty)]
+    (fget tile 0))) ;; true = bloqué si flag 0 présent
+
 (fn player.update [self]
   (var dx 0) (var dy 0)
+
   (if (btn 0) (set dy -1))
   (if (btn 1) (set dy  1))
   (if (btn 2) (set dx -1))
   (if (btn 3) (set dx  1))
+
   (when (not self.attack-state.active)
     (if (< dx 0) (do (set self.direction :left)  (set self.flip 1))
         (> dx 0) (do (set self.direction :right) (set self.flip 0))
         (< dy 0) (set self.direction :up)
         (> dy 0) (set self.direction :down)))
+
   (set self.is-moving (or (not= dx 0) (not= dy 0)))
+
   (var speed self.speed)
   (when (and (not= dx 0) (not= dy 0))
     (set speed (* speed 0.707)))
-  (set self.x (+ self.x (* dx speed)))
-  (set self.y (+ self.y (* dy speed))))
+
+  ;; tentative déplacement X
+  (let [nx (+ self.x (* dx speed))]
+    (when (not (solid? nx self.y))
+      (set self.x nx)))
+
+  ;; tentative déplacement Y
+  (let [ny (+ self.y (* dy speed))]
+    (when (not (solid? self.x ny))
+      (set self.y ny))))
 
 (fn player.draw [self screen-w screen-h]
   (let [px  (- (/ screen-w 2) 4)
