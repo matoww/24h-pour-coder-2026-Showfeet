@@ -1,35 +1,29 @@
 ;; projectile.fnl
-
 (local actifs [])
 
-(local DIRS
-  {:right {:dx  1 :dy  0}
-   :left  {:dx -1 :dy  0}
-   :up    {:dx  0 :dy -1}
-   :down  {:dx  0 :dy  1}})
+;; Table de conversion simplifiée pour les projectiles
+(local DIR-MAP
+  {:right {:dx 1  :dy 0  :fl 0 :ro 3}
+   :left  {:dx -1 :dy 0  :fl 0 :ro 1}
+   :up    {:dx 0  :dy -1 :fl 3 :ro 0}
+   :down  {:dx 0  :dy 1  :fl 0 :ro 0}})
 
-;; flip/rotate selon direction — même logique que attack.fnl
-(local DIR-SPR
-  {:right {:fl 0 :ro 3}
-   :left  {:fl 0 :ro 1}
-   :up    {:fl 3 :ro 0}   ;; 270° = pointe vers le haut
-   :down  {:fl 0 :ro 0}}) ;; 90°  = pointe vers le bas
-
-(fn fire [player weapon]
-  (let [dir     (. DIRS    player.direction)
-        spr-dir (. DIR-SPR player.direction)]
+(fn fire [source weapon]
+  "Prend n'importe quelle source ayant .x, .y et .direction"
+  (let [config (. DIR-MAP source.direction)]
     (table.insert actifs
-      {:x         (+ player.x 4)
-       :y         (+ player.y 4)
-       :dx        dir.dx
-       :dy        dir.dy
-       :fl        spr-dir.fl
-       :ro        spr-dir.ro
+      {:x         (+ source.x 4)
+       :y         (+ source.y 4)
+       :dx        config.dx
+       :dy        config.dy
+       :fl        config.fl
+       :ro        config.ro
        :speed     weapon.vitesse-projectile
        :degats    weapon.degats
        :portee-px (* weapon.portee 8)
        :parcouru  0
-       :sprite-id weapon.sprite-projectile})))
+       :sprite-id weapon.sprite-projectile
+       :owner     source})))
 
 (fn update []
   (var i 1)

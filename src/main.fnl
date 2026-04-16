@@ -11,21 +11,23 @@
 (local projectile  (include "src.weapon.projectile"))
 (local hud         (include "src.hud"))
 (local Civil       (include "src.pnj.civil"))
-(local zombie-mod  (include "src.pnj.zombie"))
+(local Nav (include "src.pnj.naviguation"))
 (local Arbre       (include "src.world.arbre"))
 (local Rocher      (include "src.world.rocher"))
 (local objects     (include "src.world.objects"))
 (local game-map    (include "src.world.map"))
 (local Base   (include "src.world.base"))
 
-(local Zombie zombie-mod.Zombie)
+;; Nouveaux modules de mobs
+(local MeleeMob    (include "src.pnj.meleeMob"))
+(local RangedMob   (include "src.pnj.rangeMob"))
 
 (local screen-w 240)
 (local screen-h 136)
 
-(local ZOMBIE-MAX             20)
-(local ZOMBIE-SPAWN-INTERVAL 120)
-(local ZOMBIE-SPAWN-PAR-VAGUE  2)
+(local MOB-MAX             25)
+(local SPAWN-INTERVAL      120)
+(local SPAWN-PAR-VAGUE      2)
 
 (local p1 (player-cls.new 120 68))
 
@@ -43,8 +45,8 @@
 
 (var game-over false)
 (var civils  [])
-(var zombies [])
-(var zombie-spawn-timer 0)
+(var mobs    []) ;; Liste générique pour tous les types d'ennemis
+(var spawn-timer 0)
 (var zombie-spawn-points [])
 
 (fn pal [c0 c1]
@@ -53,6 +55,7 @@
       (for [i 0 15] (poke4 (+ 32736 i) i))))
 
 (fn init-zombie-spawn-points []
+  "Scanne la carte pour trouver les points de spawn (tuiles 61, 62, 63)"
   (for [tx 0 239]
     (for [ty 0 135]
       (let [t (mget tx ty)]
@@ -60,15 +63,19 @@
           (table.insert zombie-spawn-points
                         {:x (* tx 8) :y (* ty 8)}))))))
 
-(fn spawn-zombie []
-  (when (and (< (length zombies) ZOMBIE-MAX)
-             (> (length zombie-spawn-points) 0))
-    (for [_ 1 ZOMBIE-SPAWN-PAR-VAGUE]
-      (when (< (length zombies) ZOMBIE-MAX)
-        (let [idx (math.random 1 (length zombie-spawn-points))
-              sp  (. zombie-spawn-points idx)
-              z   (Zombie.new sp.x sp.y (length zombies))]
-          (table.insert zombies z))))))
+(fn spawn-mob []
+  (trace "Tentative de spawn nocturne...")
+  (if (<= (length zombie-spawn-points) 0)
+      (trace "ERREUR : Aucune tuile 61, 62 ou 63 trouvee sur la map !")
+      (let [idx  (math.random 1 (length zombie-spawn-points))
+            sp   (. zombie-spawn-points idx)
+            ;; On force un zombie pour tester
+            new-zombie (MeleeMob.new sp.x sp.y :zombie)]
+        (if (= new-zombie nil)
+            (trace "ERREUR : Le module MeleeMob renvoie nil (verifie l'export)")
+            (do
+              (table.insert mobs new-zombie)
+              (trace (.. "Spawn reussi ! Mobs totaux: " (length mobs))))))))
 
 (fn update-world []
   (set world.time (+ world.time 1))
@@ -83,72 +90,62 @@
     (when (and (not was-night) world.is-night
                (< (length civils) 15))
       (table.insert civils (Civil.new))))
-  ;; Détection game over
   (when (<= p1.hp 0)
     (set game-over true)))
 
-(fn update-zombies []
-  (when world.is-night
-    (set zombie-spawn-timer (+ zombie-spawn-timer 1))
-    (when (>= zombie-spawn-timer ZOMBIE-SPAWN-INTERVAL)
-      (set zombie-spawn-timer 0)
-      (spawn-zombie)))
+(fn update-mobs-logic []
+  ;; On traite la file d'attente globale de navigation
+  (Nav.process-queue p1) 
 
-  ;; Traite UN seul recalcul A* par frame
-  (zombie-mod.process-recalc-queue p1)
+  (for [i (length mobs) 1 -1]
+    (let [m (. mobs i)]
+      (if (<= m.hp 0)
+          (table.remove mobs i)
+          (m:update p1)))))
 
-  (var i 1)
-  (while (<= i (length zombies))
-    (let [z (. zombies i)]
-      (if (<= z.hp 0)
-          (table.remove zombies i)
-          (do
-            (Zombie.update z p1)
-            (set i (+ i 1)))))))
-
-(fn check-projectiles-vs-zombies []
+(fn check-projectiles [targets]
+  "Gère les collisions des projectiles"
   (var pi 1)
   (while (<= pi (length projectile.actifs))
     (let [proj (. projectile.actifs pi)]
-      (var touche false)
-      (var zi 1)
-      (while (<= zi (length zombies))
-        (let [z    (. zombies zi)
-              dx   (- proj.x z.x)
-              dy   (- proj.y z.y)
-              dist (math.sqrt (+ (* dx dx) (* dy dy)))]
-          (when (and (> z.hp 0) (<= dist 8))
-            (set z.hp (math.max 0 (- z.hp proj.degats)))
-            (set proj.parcouru proj.portee-px)
-            (set touche true)))
-        (set zi (+ zi 1)))
+      (var a-touche false)
+      (each [_ target (ipairs targets)]
+        (when (and (not a-touche) 
+                   (> (or target.hp 0) 0) 
+                   (not= target proj.owner))
+          (let [dx (- proj.x (+ target.x 4))
+                dy (- proj.y (+ target.y 4))
+                dist (math.sqrt (+ (* dx dx) (* dy dy)))]
+            (when (<= dist 8)
+              (set target.hp (math.max 0 (- target.hp proj.degats)))
+              (set proj.parcouru proj.portee-px) 
+              (set a-touche true)))))
       (set pi (+ pi 1)))))
 
-(fn check-melee-vs-zombies []
-  (when (and p1.attack-state.active
-             p1.equipped-weapon
-             (not p1.equipped-weapon.ranged))
-    (let [w     p1.equipped-weapon
-          range (* w.portee 8)
-          ax    (if (= p1.direction :left)  (- p1.x range)
-                    (= p1.direction :right) (+ p1.x 8)
-                    (- p1.x 4))
-          ay    (if (= p1.direction :up)    (- p1.y range)
-                    (= p1.direction :down)  (+ p1.y 8)
-                    (- p1.y 4))
-          aw    (if (or (= p1.direction :left)
-                        (= p1.direction :right)) range 16)
-          ah    (if (or (= p1.direction :up)
-                        (= p1.direction :down))  range 16)]
-      (each [_ z (ipairs zombies)]
-        (when (and (> z.hp 0)
-                   (< ax (+ z.x 8)) (> (+ ax aw) z.x)
-                   (< ay (+ z.y 8)) (> (+ ay ah) z.y))
-          (set z.hp (math.max 0 (- z.hp w.degats))))))))
+(fn check-hit [attacker targets]
+  "Gère les collisions de mêlée"
+  (let [st attacker.attack-state]
+    (when (and st st.active st.weapon)
+      (let [w     st.weapon
+            range (* w.portee 8)
+            ax    (if (= attacker.direction :left)  (- attacker.x range)
+                      (= attacker.direction :right) (+ attacker.x 8)
+                      (- attacker.x 4))
+            ay    (if (= attacker.direction :up)    (- attacker.y range)
+                      (= attacker.direction :down)  (+ attacker.y 8)
+                      (- attacker.y 4))
+            aw    (if (or (= attacker.direction :left) (= attacker.direction :right)) range 16)
+            ah    (if (or (= attacker.direction :up)   (= attacker.direction :down))  range 16)]
+        (each [_ target (ipairs targets)]
+          (when (and (not= attacker target) 
+                     (> (or target.hp 0) 0)
+                     (< ax (+ target.x 8)) (> (+ ax aw) target.x)
+                     (< ay (+ target.y 8)) (> (+ ay ah) target.y))
+            (set target.hp (math.max 0 (- target.hp w.degats)))))))))
 
 (fn get-camera []
-  (values (- p1.x (/ screen-w 2))
-          (- p1.y (/ screen-h 2))))
+  (values (- (+ p1.x 4) (/ screen-w 2))
+          (- (+ p1.y 4) (/ screen-h 2)))) 
 
 (fn draw-map-view [cam-x cam-y]
   (let [cell-x   (// cam-x 8)
@@ -161,7 +158,7 @@
   (pal 12 13) (pal 13 14) (pal 5  10)
   (pal 6   9) (pal 7   0) (pal 4  14)
   (pal 3   1) (pal 8   2) (pal 11 10)
-  (pal 10  9))
+  (pal 10  9)) 
 
 (fn resolve-collision []
   (let [r  p1.radius
@@ -173,19 +170,19 @@
           (if (not (objects.check-collision px prev-y r))
               (set p1.y prev-y)
               (do (set p1.x prev-x)
-                  (set p1.y prev-y)))))))
+                  (set p1.y prev-y))))))) 
 
 (fn reset-game []
   (set p1.hp      p1.max-hp)
   (set p1.x       120)
   (set p1.y       68)
-  (set zombies    [])
+  (set mobs       [])
   (set game-over  false)
   (set world.time 0)
   (set world.day-count 0)
   (set world.is-night  false)
-  (set zombie-spawn-timer 0)
-  (set zombie-mod.recalc-queue []))
+  (set spawn-timer 0)
+  (set Nav.recalc-queue []))
 
 (fn handle-inputs []
   (when (btnp 4)
@@ -196,11 +193,10 @@
             (do
               (attack.start p1 w)
               (objects.hit-in-range p1 w inventory))))))
-  (when (btnp 5)
+  (when (btnp 5) 
     (each [_ c (ipairs civils)]
       (when (not c.batiment)
         (Civil.assign-building c {:x p1.x :y p1.y})
-        (trace (.. c.name " reçoit un bâtiment !"))
         (lua "break"))))
   (when (btnp 6)
     (set inventory-open (not inventory-open)))
@@ -213,26 +209,15 @@
           cy (* (math.random 5 15) 8)]
       (table.insert civils (Civil.new cx cy)))))
 
-;; --- INITIALIZATION ---
 (music 0)
-
-;; --- BOUCLE PRINCIPALE ---
 
 (global TIC
   (fn []
     (when (not initialized)
-      (local ids-trouves {})
-      (for [tx 0 239]
-        (for [ty 0 135]
-          (let [t (mget tx ty)]
-            (when (> t 0)
-              (tset ids-trouves t true)))))
-      (each [id _ (pairs ids-trouves)]
-        (trace (.. "Tile ID: " id)))
+      (trace "--- INITIALISATION DU MONDE ---")
       (game-map.init objects Arbre Rocher item)
       (init-zombie-spawn-points)
-      (trace (.. "Objets: "        (length objects.liste)))
-      (trace (.. "Spawn zombies: " (length zombie-spawn-points)))
+      (trace (.. "Points de spawn trouves: " (length zombie-spawn-points)))
       (init-civils)
       (set initialized true))
 
@@ -240,12 +225,7 @@
     (when game-over
       (cls 0)
       (hud.draw-gameover screen-w screen-h)
-      (print (.. "Jours survecus: " world.day-count)
-             (- (// screen-w 2) 50)
-             (+ (- (// screen-h 2) 30) 20)
-             12 false 1 false)
-      (when (btnp 4)
-        (reset-game))
+      (when (btnp 4) (reset-game))
       (lua "return"))
 
     ;; --- Update ---
@@ -259,33 +239,50 @@
     (attack.update p1)
     (projectile.update)
     (objects.update)
-    (each [_ c (ipairs civils)]
-      (Civil.update c world.is-night))
-    (update-zombies)
-    (check-projectiles-vs-zombies)
-    (check-melee-vs-zombies)
+    (each [_ c (ipairs civils)] (Civil.update c world.is-night))
+    
+    ;; --- LOGIQUE DE SPAWN DEBOGAGE ---
+    (set spawn-timer (+ spawn-timer 1))
+    
+    ;; On affiche l'etat toutes les 60 frames (1s) pour comprendre
+    (when (= (% world.time 60) 0)
+       (trace (.. "Etat: " (if world.is-night "NUIT" "JOUR") 
+                  " | Timer: " spawn-timer 
+                  " | Mobs: " (length mobs))))
 
+    ;; ON FORCE LE SPAWN MEME LE JOUR POUR LE TEST
+    (when (>= spawn-timer SPAWN-INTERVAL)
+      (set spawn-timer 0)
+      (if (= (length zombie-spawn-points) 0)
+          (trace "ALERTE: Aucun point de spawn sur la map (tuiles 61,62,63)!")
+          (spawn-mob)))
+
+    (update-mobs-logic) ;; On separe l'update du spawn pour plus de clarte
+
+    ;; --- Collisions ---
+    (check-projectiles mobs)
+    (check-projectiles [p1])
+    (check-hit p1 mobs)
+    (each [_ m (ipairs mobs)] (check-hit m [p1]))
+
+    ;; --- Rendu ---
     (pal)
     (when world.is-night (apply-night-filter))
-
     (cls 0)
     (let [(cam-x cam-y) (get-camera)]
       (draw-map-view cam-x cam-y)
       (objects.draw cam-x cam-y)
       (projectile.draw cam-x cam-y)
-      (each [_ z (ipairs zombies)]
-        (Zombie.draw z cam-x cam-y))
-      (each [_ c (ipairs civils)]
-        (Civil.draw c cam-x cam-y))
-      (attack.draw p1 screen-w screen-h)
+      (each [_ m (ipairs mobs)] (m:draw cam-x cam-y))
+      (each [_ c (ipairs civils)] (Civil.draw c cam-x cam-y))
+      
+      ;; Utilisation de cam-x/y pour que l'arme suive le joueur dans le monde
+      (attack.draw p1 cam-x cam-y)
       (p1:draw screen-w screen-h))
 
     (pal)
     (hud.draw p1 screen-w screen-h)
     (hud.draw-clock world screen-w screen-h)
-
     (when inventory-open
-      (hud.draw-inventory-panel
-        p1.inventory item.RESSOURCES screen-w screen-h)
-      (hud.draw-weapon-stats
-        p1.equipped-weapon screen-w screen-h))))
+      (hud.draw-inventory-panel p1.inventory item.RESSOURCES screen-w screen-h)
+      (hud.draw-weapon-stats p1.equipped-weapon screen-w screen-h))))

@@ -19,34 +19,27 @@
            {:dx  0 :dy 10 :fl 2 :ro 0}
            {:dx -8 :dy  8 :fl 2 :ro 0}]})
 
-(fn start [player weapon]
-  (when (not player.attack-state.active)
-    (set player.attack-state.active true)
-    (set player.attack-state.frame  0)
-    (set player.attack-state.weapon weapon)))
+(fn start [entite weapon]
+  "Initialise l'état d'attaque sur n'importe quelle entité"
+  (set entite.attack-state {:active true :frame 0 :weapon weapon}))
 
-(fn update [player]
-  (when player.attack-state.active
-    (set player.attack-state.frame (+ player.attack-state.frame 1))
-    (when (>= player.attack-state.frame DUREE)
-      (set player.attack-state.active false)
-      (set player.attack-state.frame  0)
-      (set player.attack-state.weapon nil))))
+(fn update [entite]
+  (when (and entite.attack-state entite.attack-state.active)
+    (set entite.attack-state.frame (+ entite.attack-state.frame 1))
+    (when (>= entite.attack-state.frame 12)
+      (set entite.attack-state.active false))))
 
-(fn draw [player screen-w screen-h]
-  (when (and player.attack-state.active
-             (not= player.attack-state.weapon nil))
-    (let [weapon player.attack-state.weapon
-          phases (. PHASES player.direction)
-          phase  (math.min (- NB-PHASES 1)
-                           (// (* player.attack-state.frame NB-PHASES) DUREE))
-          off    (. phases (+ phase 1))
-          cx     (- (/ screen-w 2) 4)
-          cy     (- (/ screen-h 2) 4)]
-      (spr weapon.sprite-id
-           (+ cx off.dx)
-           (+ cy off.dy)
-           0 1 off.fl off.ro))))
+(fn draw [entite cam-x cam-y]
+  "Affiche l'arme aux coordonnées de l'entité moins la caméra"
+  (let [st entite.attack-state]
+    (when (and st st.active st.weapon)
+      (let [phases (. PHASES entite.direction)
+            phase  (math.min 2 (// (* st.frame 3) 12))
+            off    (. phases (+ phase 1))]
+        (spr st.weapon.sprite-id
+             (+ (- entite.x cam-x) off.dx)
+             (+ (- entite.y cam-y) off.dy)
+             0 1 off.fl off.ro)))))
 
 {:start  start
  :update update
