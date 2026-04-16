@@ -4,14 +4,18 @@
 ;; author: Showfeet
 
 ;; --- DÉPENDANCES ---
-(local item       (include "src.item"))
-(local inventory  (include "src.player.inventory"))
-(local player-cls (include "src.player.player"))
-(local attack     (include "src.player.attack"))
-(local weapon     (include "src.weapon.weapon"))
-(local projectile (include "src.weapon.projectile"))
-(local hud        (include "src.hud"))
-(local Civil      (include "src.pnj.civil"))
+(local item        (include "src.item"))
+(local inventory   (include "src.player.inventory"))
+(local player-cls  (include "src.player.player"))
+(local attack      (include "src.player.attack"))
+(local weapon      (include "src.weapon.weapon"))
+(local projectile  (include "src.weapon.projectile"))
+(local hud         (include "src.hud"))
+(local Civil       (include "src.pnj.civil"))
+(local Arbre       (include "src.world.arbre"))
+(local Rocher      (include "src.world.rocher"))
+(local objects     (include "src.world.objects"))
+(local game-map    (include "src.world.map"))
 
 ;; --- CONSTANTES ---
 (local screen-w 240)
@@ -25,11 +29,13 @@
   {:time           0
    :day-duration   120
    :night-duration 120
-   :is-night       false})
-(var sauvegardeWorld {:is-night false})
+   :is-night       false
+   :day-count      0})
 
 (var initialized    false)
 (var inventory-open false)
+(var prev-x p1.x)
+(var prev-y p1.y)
 
 ;; --- LISTE DES CIVILS ---
 (var civils [])
@@ -44,22 +50,19 @@
 ;; --- LOGIQUE DU MONDE ---
 
 (fn update-world []
-
   (set world.time (+ world.time 1))
-
-  (let [total   (+ world.day-duration world.night-duration)
-
-        current (% world.time total)]
-
-    (set sauvegardeWorld.is-night world.is-night)
-
-    (set world.is-night (>= current world.day-duration)))
-
-    (when (and (not (= world.is-night sauvegardeWorld.is-night))
-               sauvegardeWorld.is-night
+  (let [total     (+ world.day-duration world.night-duration)
+        current   (% world.time total)
+        was-night world.is-night]
+    (set world.is-night (>= current world.day-duration))
+    ;; Passage nuit → jour
+    (when (and was-night (not world.is-night))
+      (set world.day-count (+ world.day-count 1))
+      (objects.respawn-all))
+    ;; Passage jour → nuit : spawn un civil (max 15)
+    (when (and (not was-night) world.is-night
                (< (length civils) 15))
-
-      (table.insert civils (Civil.new))))
+      (table.insert civils (Civil.new)))))
 
 ;; --- CAMÉRA ---
 
@@ -82,80 +85,102 @@
   (pal 3   1) (pal 8   2) (pal 11 10)
   (pal 10  9))
 
-(fn init-test-map []
-  (for [x 0 63]
-    (for [y 0 63]
-      (mset x y (math.random 13 15)))))
+;; --- COLLISION MONDE ---
 
-(fn init-civils []
-  "Crée quelques civils dispersés sur la map."
-  (for [_ 1 3]
-    (let [cx (* (math.random 5 25) 8)
-          cy (* (math.random 5 15) 8)]
-      (table.insert civils (Civil.new cx cy)))))
+(fn resolve-collision []
+  (let [r  p1.radius
+        px p1.x
+        py p1.y]
+    (when (objects.check-collision px py r)
+      (if (not (objects.check-collision prev-x py r))
+          (set p1.x prev-x)
+          (if (not (objects.check-collision px prev-y r))
+              (set p1.y prev-y)
+              (do (set p1.x prev-x)
+                  (set p1.y prev-y)))))))
 
 ;; --- INPUTS ---
 
 (fn handle-inputs []
   (when (btnp 4)
-    (weapon.attaquer p1 attack projectile))
-  (when (btnp 6)
-    (set inventory-open (not inventory-open)))
-  (when (btnp 7)
-    (weapon.cycle p1))
-
-  ;; Exemple : X (5) assigne un bâtiment fictif au 1er civil sans bâtiment
-  ;; À remplacer par ta vraie logique quand les bâtiments existent
+    (let [w p1.equipped-weapon]
+      (when (not= w nil)
+        (if w.ranged
+            (projectile.fire p1 w)
+            (do
+              (attack.start p1 w)
+              (objects.hit-in-range p1 w inventory))))))
   (when (btnp 5)
     (each [_ c (ipairs civils)]
       (when (not c.batiment)
         (Civil.assign-building c {:x p1.x :y p1.y})
         (trace (.. c.name " reçoit un bâtiment !"))
-        (lua "break")))))
+        (lua "break"))))
+  (when (btnp 6)
+    (set inventory-open (not inventory-open)))
+  (when (btnp 7)
+    (weapon.cycle p1)))
+
+;; --- INIT CIVILS ---
+
+(fn init-civils []
+  (for [_ 1 3]
+    (let [cx (* (math.random 5 25) 8)
+          cy (* (math.random 5 15) 8)]
+      (table.insert civils (Civil.new cx cy)))))
 
 ;; --- BOUCLE PRINCIPALE ---
 
 (global TIC
   (fn []
     (when (not initialized)
-      (init-test-map)
+      (local ids-trouves {})
+      (for [tx 0 239]
+        (for [ty 0 135]
+          (let [t (mget tx ty)]
+            (when (> t 0)
+              (tset ids-trouves t true)))))
+      (each [id _ (pairs ids-trouves)]
+        (trace (.. "Tile ID: " id)))
+      (game-map.init objects Arbre Rocher item)
+      (trace (.. "Objets: " (length objects.liste)))
       (init-civils)
       (set initialized true))
 
-    ;; 1. Mises à jour
+    ;; --- Sauvegarde position avant mouvement ---
+    (set prev-x p1.x)
+    (set prev-y p1.y)
+
+    ;; --- Update ---
     (p1:update)
+    (resolve-collision)
     (update-world)
     (handle-inputs)
     (attack.update p1)
     (projectile.update)
-
-    ;; Mise à jour des civils
+    (objects.update)
     (each [_ c (ipairs civils)]
       (Civil.update c world.is-night))
 
-    ;; 2. Palette scène
+    ;; --- Palette ---
     (pal)
     (when world.is-night (apply-night-filter))
 
-    ;; 3. Dessin scène
+    ;; --- Rendu ---
     (cls 0)
     (let [(cam-x cam-y) (get-camera)]
       (draw-map-view cam-x cam-y)
+      (objects.draw cam-x cam-y)
       (projectile.draw cam-x cam-y)
-
-      ;; Dessin des civils
       (each [_ c (ipairs civils)]
         (Civil.draw c cam-x cam-y))
-
       (attack.draw p1 screen-w screen-h)
       (p1:draw screen-w screen-h))
 
-    ;; 4. HUD avec palette d'origine
     (pal)
     (hud.draw p1 screen-w screen-h)
     (hud.draw-clock world screen-w screen-h)
 
-    ;; 5. Panneau inventaire
     (when inventory-open
       (hud.draw-inventory-panel
         p1.inventory item.RESSOURCES screen-w screen-h)

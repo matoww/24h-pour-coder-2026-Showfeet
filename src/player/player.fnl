@@ -1,5 +1,3 @@
-;; player/player.fnl
-
 (local Agressif (include "src.pnj.agressif"))
 
 (local player {})
@@ -41,7 +39,6 @@
                 (if (and self.is-moving anim-frame) 293 292)
                 (if (= self.direction :down)
                     (if (and self.is-moving anim-frame) 291 290)
-                    ;; :left et :right — flip géré par self.flip
                     (if (and self.is-moving anim-frame) 289 288)))]
     (spr sid px py 0 1 self.flip)))
 
