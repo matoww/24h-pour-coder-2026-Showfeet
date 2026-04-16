@@ -29,7 +29,7 @@
 (local SPAWN-INTERVAL      120)
 (local SPAWN-PAR-VAGUE      2)
 
-(local p1 (player-cls.new 120 68))
+(local p1 (player-cls.new 1585 825))
 
 (var world
   {:time           0
@@ -279,6 +279,7 @@
       ;; Utilisation de cam-x/y pour que l'arme suive le joueur dans le monde
       (attack.draw p1 cam-x cam-y)
       (p1:draw screen-w screen-h))
+
 
     (pal)
     (hud.draw p1 screen-w screen-h)
