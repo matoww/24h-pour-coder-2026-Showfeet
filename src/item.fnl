@@ -57,9 +57,10 @@
 ;; ------------------------------------------------------------------
 (local BOIS   (make-ressource :bois   "Bois"   5 6  999))
 (local PIERRE (make-ressource :pierre "Pierre" 4 13 999))
+(local FER (make-ressource :pierre "Fer" 20 13 999))
 
 ;; Tableau ordonné pour l'affichage (ipairs = ordre garanti).
-(local RESSOURCES [BOIS PIERRE])
+(local RESSOURCES [BOIS PIERRE FER])
 
 ;; ------------------------------------------------------------------
 ;; EXPORTS
@@ -71,4 +72,5 @@
  :make-ressource make-ressource
  :BOIS          BOIS
  :PIERRE        PIERRE
+ :FER           FER
  :RESSOURCES    RESSOURCES}
