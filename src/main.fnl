@@ -16,6 +16,7 @@
 (local Rocher      (include "src.world.rocher"))
 (local objects     (include "src.world.objects"))
 (local game-map    (include "src.world.map"))
+(local Base   (include "src.world.base"))
 
 ;; --- CONSTANTES ---
 (local screen-w 240)

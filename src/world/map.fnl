@@ -1,5 +1,7 @@
 ;; map.fnl
 
+(local Base (include "src.world.base"))
+
 (local TILE-HERBE-REF  13)
 (local TILES-HERBE     [13 14 15])
 
@@ -21,6 +23,9 @@
 (local MAP-W 240)
 (local MAP-H 136)
 
+(local BASE-TX 200)
+(local BASE-TY 100)
+
 (fn contient? [tab val]
   (var found false)
   (each [_ v (ipairs tab)]
@@ -28,6 +33,11 @@
   found)
 
 (fn init [objects-module Arbre Rocher item]
+  ;; Instanciation de la base en premier
+  (local base (Base.new BASE-TX BASE-TY))
+  (objects-module.add base)
+
+
   (var nb-arbres  0)
   (var nb-rochers 0)
   (var nb-herbe   0)
@@ -50,6 +60,9 @@
         (when (contient? TILES-HERBE (mget tx ty))
           (set nb-herbe (+ nb-herbe 1)))
 
+        ;; Skip spawn si dans la zone d'exclusion de la base
+        (when (not (base:in-exclusion-zone? tx ty))
+
         ;; Spawn arbres sur herbe
         (var arbre-spawne false)
         (let [t (mget tx ty)]
@@ -65,7 +78,7 @@
             (when (and (contient? TILES-SPAWN-ROCHER t)
                        (< (math.random) PROB-ROCHER))
               (objects-module.add (Rocher.new (* tx 8) (* ty 8) item))
-              (set nb-rochers (+ nb-rochers 1))))))))
+              (set nb-rochers (+ nb-rochers 1)))))))))
 
   (trace (.. "Tuiles herbe trouvees: " nb-herbe))
   (trace (.. "Arbres:  " nb-arbres))
